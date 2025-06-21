@@ -1,6 +1,6 @@
 {
     "name": "mcp_exe",
-    "version": "0.11.6",
+    "version": "0.11.7",
     "description": "Turn MCP server into an executable file",
     "main": "dist/server.js",
     "bin": {

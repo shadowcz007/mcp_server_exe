@@ -1,5 +1,6 @@
 import initSqlJs from 'sql.js'
 import fs from 'fs'
+import path from 'path'
 
 async function createDatabase (dbPath: string) {
   const SQL = await initSqlJs()
@@ -14,6 +15,7 @@ async function createDatabase (dbPath: string) {
 
   db._saveDBFile = () => {
     const data = db.export() // 导出为二进制 Buffer
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true })
     fs.writeFileSync(dbPath, Buffer.from(data))
   }
   return db
