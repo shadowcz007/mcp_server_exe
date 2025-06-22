@@ -31,8 +31,6 @@
         "outputPath": "executables",
         "assets": [
             "dist/**/*",
-            "src/**/*",
-            "node_modules/node-notifier/vendor/**/*",
             "node_modules/sql.js/dist/sql-wasm.wasm"
         ]
     },
