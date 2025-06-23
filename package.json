@@ -23,6 +23,10 @@
     },
 
     "pkg": {
+        "options": [
+            "--no-bytecode",
+            "--public"
+        ],
         "targets": [
             "node18-win-x64",
             "node18-macos-x64",
