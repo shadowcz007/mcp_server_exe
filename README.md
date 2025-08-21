@@ -9,6 +9,7 @@ MCP Server.exe 是一个强大的可执行服务器，它不仅能够运行标�
 - 多 MCP 服务组合：可同时运行和管理多个 MCP 服务，支持 SSE 和 stdio 双模式
 - 插件化工具系统：支持自定义工具的动态加载和配置
 - 灵活的部署选项：从单机运行到分布式部署，满足各类集成场景
+- 自动重载：监听 `--mcp-config` 与 `--mcp-js` 变更，自动重启生效
 
 MCP Server.exe is a powerful executable server that not only runs standard MCP (Model Context Protocol) services, but also provides rich advanced features:
 
@@ -16,10 +17,15 @@ MCP Server.exe is a powerful executable server that not only runs standard MCP (
 - Multiple MCP Services: Can run and manage multiple MCP services simultaneously, supporting both SSE and stdio modes
 - Pluggable Tool System: Support dynamic loading and configuration of custom tools
 - Flexible Deployment: From standalone operation to distributed deployment, meeting various integration scenarios
+- Auto reload for config changes
 
 ### Usage
 ```bash
-npx mcp_exe --mcp-config xxx
+# 推荐：通过 CLI 运行（无需本地构建）
+npx mcp_exe --mcp-config ./examples/mcp.json
+
+# 或运行打包后的可执行文件（Windows/macOS）
+./executables/mcp_server-win-x64.exe --mcp-config ./examples/mcp.json
 ```
 
 ## 🎯 主要使用场景 | Main Usage Scenarios
@@ -33,10 +39,8 @@ Support connecting to other MCP services via WebSocket, especially suitable for 
 ![xiaozhi-mcp](./assets/xiaozhi-mcp.png)
 
 ```bash
-# 使用配置文件连接到 xiaozhi.me
-# Start in WebSocket mode
-./mcp_server.exe --ws wss://api.xiaozhi.me/mcp/?token=...xxx --mcp-config ./examples/mcp-sse.json
-
+# 使用配置文件连接到 xiaozhi.me / Start in WebSocket mode
+npx mcp_exe --ws wss://api.xiaozhi.me/mcp/?token=...xxx --mcp-config ./examples/mcp-sse.json
 ```
 
 配置示例 | Configuration Example (mcp-sse.json):
@@ -45,17 +49,10 @@ Support connecting to other MCP services via WebSocket, especially suitable for 
     "mcpServers": {
         "Model Server sse": {
             "url": "http://127.0.0.1:3000"
-        },
-        "Model Server - stdio": {
-            "command": "xxxxx",
-            "args": [
-                "--transport",
-                "stdio"
-            ]
         }
     },
     "serverInfo": {
-        "serverName": "ws-client-mcp-server", 
+        "serverName": "ws-client-mcp-server",
         "version": "1.0.0",
         "description": "WebSocket 客户端的 MCP 服务器实例",
         "author": "shadow"
@@ -73,46 +70,48 @@ WebSocket 模式特性 | WebSocket Mode Features:
 
 ### 2. 快速启动独立服务 | Quick Start Standalone Service
 
-最简单的使用方式 - 双击运行，即可启动一个标准的 MCP 服务。
+最简单的使用方式 - 双击运行，或使用 npx 即可启动一个标准的 MCP 服务。
 
-The simplest way - double-click to run, and start a standard MCP service.
+The simplest way - double-click to run, or start via npx.
 
 ```bash
 # 双击运行 mcp_server.exe，或通过命令行启动
-# Double-click mcp_server.exe, or start via command line:
-./mcp_server.exe
+./executables/mcp_server-win-x64.exe
+# 或
+npx mcp_exe
 ```
 
 默认配置 | Default Configuration:
-- 监听端口 | Listen Port: 3000
-- 支持标准端点 | Standard Endpoints: /mcp, /sse, /messages
+- 监听端口 | Listen Port: 3000（可通过 `--port` 修改）
+- SSE 路由 | SSE Endpoints: GET `/` 建立会话，POST `/sessions?sessionId=...` 发送消息
 - 内置基础工具集 | Built-in Basic Tools
+- 自动重载 | Auto reload `--mcp-config` 与 `--mcp-js`
 
 ### 3. 组合多个 MCP 服务 | Combine Multiple MCP Services
 
-使用和 **Cursor** 一致的 **mcp.json** 配置文件，通过配置文件组合多个 MCP 服务，支持同时使用 SSE 和 stdio 两种传输模式。这样可以根据不同的应用场景选择合适的传输方式，提高系统的灵活性和可扩展性。
+使用与 **Cursor** 一致的 **mcp.json** 配置文件，通过配置文件组合多个 MCP 服务，支持同时使用 SSE 和 stdio 两种传输模式。这样可以根据不同的应用场景选择合适的传输方式，提高系统的灵活性和可扩展性。
 
-Use the same **mcp.json** configuration file as **Cursor** to combine multiple MCP services, supporting both SSE and stdio transport modes simultaneously. This allows you to choose the appropriate transport method for different application scenarios, improving system flexibility and scalability.
+Use the same **mcp.json** configuration file as **Cursor** to combine multiple MCP services, supporting both SSE and stdio transport modes simultaneously.
 
 ```bash
-./mcp_server.exe --mcp-config ./examples/mcp.json
+npx mcp_exe --mcp-config ./examples/mcp.json
 ```
 
 配置示例 | Configuration Example (mcp.json):
 ```json
 {
-    "mcpServers": {
-      "Model Server - sse": {
-        "url": "http://127.0.0.1:9090"
-      },
-      "Model Server - stdio": {
-        "command":
-          "xxx",
-        "args": ["--transport", "stdio"]
-      }
-    }
+  "mcpServers": {
+    "Model Server sse": { "url": "http://127.0.0.1:9090" },
+    "Model Server - stdio": { "command": "xxx", "args": ["--transport", "stdio"] }
+  },
+  "serverInfo": { "serverName": "dynamic-mcp-server" },
+  "tools": [],
+  "namespace": "."
 }
 ```
+
+- `tools`: 允许的工具白名单（为空数组表示不过滤）
+- `namespace`: 组合命名空间分隔符，默认 `.`（亦可使用 `::`）
 
 ### 4. 工具链式调用 | Tool Chain Execution
 
@@ -121,51 +120,33 @@ Use the same **mcp.json** configuration file as **Cursor** to combine multiple M
 Support combining multiple tools into a tool chain to implement complex automation processes. Tool chains can flexibly configure data flow and result output.
 
 ```bash
-./mcp_server.exe --mcp-config ./examples/product-hunt/mcp-tool.json
+npx mcp_exe --mcp-config ./examples/product-hunt/mcp-tools.json
 ```
 
-配置示例 | Configuration Example (tool-chain.json):
+配置示例 | Configuration Example（节选，自定义按需调整）:
 ```json
 {
-    "toolChains": {
-        "browser_automation": {
-            "name": "browser_automation",
-            "description": "自动化浏览器操作流程 | Automated browser operation process",
-            "steps": [
-                {
-                    "toolName": "browser_navigate",
-                    "args": {
-                        "url": "https://example.com"
-                    }
-                },
-                {
-                    "toolName": "browser_execute_javascript",
-                    "args": {
-                        "code": "document.title"
-                    },
-                    "outputMapping": {
-                        "selector": "content.0.text"
-                    }
-                },
-                {
-                    "toolName": "browser_close",
-                    "args": {},
-                    "fromStep": 0
-                }
-            ],
-            "output": {
-                "steps": [1]  // 只输出第二步的结果
-            }
-        }
+  "toolChains": [
+    {
+      "name": "product_hunt_news",
+      "description": "get product hunt news",
+      "steps": [
+        { "toolName": "get_product_hunt_url", "args": {} },
+        { "toolName": "load_product_hunt_js_code", "args": {} },
+        { "toolName": "browser_navigate", "args": {}, "outputMapping": { "url": "content.0.text" }, "fromStep": 0 },
+        { "toolName": "browser_execute_javascript", "args": {}, "outputMapping": { "code": "content.0.text" }, "fromStep": 1 },
+        { "toolName": "browser_close", "args": {} }
+      ],
+      "output": { "steps": [3] }
     }
+  ]
 }
 ```
 
 工具链特性 | Tool Chain Features:
 - 支持多步骤顺序执行 | Support multi-step sequential execution
-- 灵活的数据流转映射 | Flexible data flow mapping
-- 可从任意步骤获取结果 | Can get results from any step
-- 自定义输出步骤结果 | Customize output step results
+- 灵活的数据流转映射 | Flexible data flow mapping（`outputMapping`/`fromStep`）
+- 可从任意步骤获取结果 | Can get results from any step（`output.steps`）
 
 ### 5. 自定义工具的插件机制 | Custom Tools Plugin Mechanism
 
@@ -174,31 +155,53 @@ Support combining multiple tools into a tool chain to implement complex automati
 Flexibly define tools, resources, and prompts through JavaScript configuration files.
 
 ```bash
-./mcp_server.exe --mcp-js ./my-custom-tools.js
+npx mcp_exe --mcp-js ./examples/custom-mcp-config.js
 ```
 
-配置示例 | Configuration Example (my-custom-tools.js):
+配置示例 | Configuration Example (`custom-mcp-config.js`):
 ```javascript
 module.exports = {
+  // 推荐导出名：configureMcp（也兼容 mcpPlugin）
   configureMcp: function(server, ResourceTemplate, z) {
-    // 添加自定义工具 | Add custom tool
-    server.tool({
-      name: "myTool",
-      description: "自定义工具示例 | Custom tool example",
-      parameters: {
-        // ... 参数定义 | Parameter definitions
-      }
-    });
-    
-    // 添加自定义资源 | Add custom resource
-    server.resource(/* ... */);
+    server.tool('myTool', '自定义工具示例', { /* zod schema */ }, async (args) => ({ content: [{ type: 'text', text: 'ok' }] }))
+    server.resource('custom-echo', new ResourceTemplate('custom-echo://{message}', { list: undefined }), async (uri, { message }) => ({ contents: [{ uri: uri.href, text: message }] }))
+    server.prompt('custom-prompt', { /* zod */ }, ({ message }) => ({ messages: [{ role: 'user', content: { type: 'text', text: message } }] }))
   }
 }
 ```
 
-### 6. 定时任务模式 (文档待补充)
---cronjob 定时执行tool
+### 6. 定时任务模式 | Cronjob Mode
 
+使用 `--cronjob` 定时执行工具。目前支持的操作：`listTools`、`callTool`。任务会在启动时立即执行一次，并按 `schedule` 周期执行，可通过桌面气泡/邮件/ntfy 推送结果。
+
+```bash
+# 示例：结合自定义工具与定时任务
+npx mcp_exe --cronjob ./examples/cronjob.json --mcp-js ./examples/product-hunt/custom-mcp-config.js
+```
+
+配置示例 | Configuration Example（`examples/cronjob.json`）：
+```json
+{
+  "tasks": [
+    {
+      "schedule": "*/30 * * * * *",
+      "operations": [
+        { "type": "callTool", "name": "get_product_hunt_url", "arguments": {} }
+      ],
+      "notify": [
+        { "type": "desktop", "title": "任务执行结果", "icon": "" }
+      ]
+    }
+  ]
+}
+```
+
+通知支持 | Notifications:
+- desktop: 系统气泡（需本地桌面环境）
+- email: 发送邮件（需提供 `to`、`subject` 等）
+- ntfy: 推送到 `ntfy`（需提供 `url`、`topic`、`tags`、`priority`）
+
+注意：定时任务直接调用已组合的工具（含远端 SSE/本地 stdio 工具），无需在任务中指定传输。
 
 ### 7. 嵌入式集成 | Embedded Integration
 
@@ -208,56 +211,63 @@ Integrate as a standalone process into any application.
 
 ```javascript
 // Node.js 示例 | Node.js Example
-const { spawn } = require('child_process');
+const { spawn } = require('child_process')
 
-const mcpServer = spawn('./mcp_server.exe', [
+const mcpServer = spawn('./executables/mcp_server-win-x64.exe', [
   '--port', '3000',
-  '--transport', 'stdio'  // 使用 stdio 模式进行进程间通信 | Use stdio mode for IPC
-]);
+  '--transport', 'stdio'
+])
 
-// 处理输入输出 | Handle I/O
 mcpServer.stdout.on('data', (data) => {
-  // 处理 MCP 服务器的输出 | Handle MCP server output
-});
+  // 处理 MCP 服务器的输出
+})
 
 mcpServer.stdin.write(JSON.stringify({
-  // 发送请求到 MCP 服务器 | Send request to MCP server
-}));
+  // 发送请求到 MCP 服务器
+}))
 ```
-
-
 
 ## 📚 详细文档 | Detailed Documentation
 
 ### 命令行参数 | Command Line Arguments
 
-服务器支持以下命令行参数来自定义其行为：
-
-The server supports the following command line arguments to customize its behavior:
+服务器支持以下命令行参数来自定义其行为：The server supports the following command line arguments:
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `--ws <url>` | WebSocket 服务器地址，启用 WebSocket 连接模式 | 无 |
-| `--mcp-js <路径>` | 配置文件路径（包含服务器配置和 MCP 配置） | 内置配置 |
+| `--mcp-js <路径>` | MCP JavaScript 配置文件路径（支持 `configureMcp` 或 `mcpPlugin`） | 无 |
+| `--mcp-config <路径/json字符串>` | MCP JSON 配置文件路径或 JSON 字符串 | 无 |
+| `--server-name <name>` | 服务器名称 | `mcp_server_exe` |
+
 | `--port <端口>` | 服务器监听端口 | 3000 |
-| `--mcp-config <路径/json字符串>` | MCP 配置文件路径/json字符串，用于组合多个 MCP 服务 | 无 |
-| `--transport <模式>` | 传输模式，支持 'sse' 或 'stdio' | sse |
+| `--transport <模式>` | 传输模式，支持 `sse` 或 `stdio`（非 WS 模式下生效） | sse |
+| `--cronjob <路径/json>` | 定时任务配置文件路径或 JSON 字符串 | 无 |
+| `--cursor-link` | 启动后在 Cursor 中快捷接入（SSE 模式） | 关闭 |
+| `--log-level <level>` | 日志级别：TRACE/DEBUG/INFO/WARN/ERROR/FATAL/OUTPUT | INFO |
+| `--version <version>` `--description <desc>` `--author <author>` `--license <license>` `--homepage <url>` | 元信息 | - |
+
+提示：若提供 `--ws` 则优先使用 WebSocket 模式；否则未显式指定时默认使用 `sse`。
 
 ### 配置文件格式 | Configuration File Format
 
 服务器支持使用配置文件同时配置服务器参数和 MCP 功能：
 
-The server supports using a configuration file to configure both server parameters and MCP functionality:
-
 ```javascript
 module.exports = {
-  
   // MCP 配置函数 | MCP configuration function
   configureMcp: function(server, ResourceTemplate, z) {
     // 配置资源和工具 | Configure resources and tools
-  }
-};
+  },
+  // 可选：提供额外的 mcp 配置对象
+  mcpConfig: { /* mcpServers/tools/toolChains/namespace */ }
+}
 ```
+
+### 自动重载 | Auto Reload
+
+- 监听 `--mcp-config` 文件变更：自动重新解析并重启服务（含工具链/命名空间/工具白名单等）
+- 监听 `--mcp-js` 文件变更：自动重新加载自定义 `configureMcp`/`mcpPlugin`
 
 ### 开发指南 | Development Guide
 
@@ -268,32 +278,36 @@ npm install
 
 #### 构建 | Build
 ```bash
-npm run build
+yarn build # 或 npm run build
 ```
 
 #### 运行 | Run
 ```bash
 npm start
-# 或开发模式 | Or development mode
+# 或开发模式（SSE）：
 npm run dev
+# WebSocket 开发：
+npm run dev-ws
+# Cronjob 开发：
+npm run dev-cronjob
 ```
 
 #### 打包 | Packaging
 ```bash
-# 为 Windows 打包 | Package for Windows
+# Windows 打包
 npm run package-win
 
-# 为 macOS 打包 | Package for macOS
-npm run package-mac
+# macOS 打包（Intel/Apple Silicon）
+npm run package-mac-intel
+npm run package-mac-arm
 ```
 
 打包后的可执行文件将生成在 `executables` 目录中。
 
-The packaged executable files will be generated in the `executables` directory.
+### 日志 | Logging
 
-### 环境变量 | Environment Variables
-
-- `PORT` - 服务器端口号（默认：3000）| Server port (default: 3000)
+- 通过 `--log-level` 控制最小输出级别（默认 `INFO`）
+- 控制台带时间戳/分类/颜色输出；`OUTPUT` 级别用于原样输出供工具解析
 
 ## 📝 许可证 | License
 
