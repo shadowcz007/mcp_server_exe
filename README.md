@@ -309,6 +309,33 @@ npm run package-mac-arm
 - 通过 `--log-level` 控制最小输出级别（默认 `INFO`）
 - 控制台带时间戳/分类/颜色输出；`OUTPUT` 级别用于原样输出供工具解析
 
+### 作为库使用 | Library API
+
+自 v0.11.x 起，提供稳定导出：`McpRouterServer`。
+
+```js
+// CommonJS
+const { McpRouterServer } = require('mcp_exe');
+
+(async () => {
+  const server = new McpRouterServer({ name: 'my-app' }, { transportType: 'sse', port: 3000 });
+  await server.importMcpConfig(require('./mcp.json'), null);
+  await server.start();
+})();
+```
+
+```ts
+// TypeScript / ESM
+import { McpRouterServer } from 'mcp_exe';
+
+const server = new McpRouterServer({ name: 'my-app' }, { transportType: 'stdio' });
+await server.importMcpConfig(mcpJson, null);
+await server.start();
+```
+
+- 类型声明输出于 `dist/index.d.ts`，通过 `types`/`exports` 自动暴露。
+- CLI 仍通过 `bin/cli.js` 提供，库与 CLI 可并行使用。
+
 ## 📝 许可证 | License
 
 MIT
